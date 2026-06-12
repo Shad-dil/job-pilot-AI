@@ -2,9 +2,20 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema } from "./schema";
+import SignInForm from "@/components/SignInForm";
+import SignUpForm from "@/components/SignUpForm";
 
 export default function SignInClient() {
+  const {
+    register,
+    handleSubmit: handleLogin,
+    formState,
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/analyze";
@@ -90,13 +101,6 @@ export default function SignInClient() {
         padding: 24,
       }}
     >
-      {/* <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 32, textDecoration: "none" }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#6366F1,#818CF8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✈</div>
-        <span style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 700, fontSize: 20, color: "var(--white)" }}>
-          JobPilot <span style={{ color: "#818CF8" }}>AI</span>
-        </span>
-      </Link> */}
-
       <div
         style={{
           width: "100%",
@@ -212,53 +216,8 @@ export default function SignInClient() {
           </div>
 
           {/* Form */}
-          <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {mode === "signup" && (
-                <Field
-                  label="Full Name"
-                  type="text"
-                  placeholder="Rahul Sharma"
-                  value={form.name}
-                  onChange={(v) => set("name", v)}
-                />
-              )}
-              <Field
-                label="Email"
-                type="email"
-                placeholder="you@example.com"
-                value={form.email}
-                onChange={(v) => set("email", v)}
-              />
-              <Field
-                label="Password"
-                type="password"
-                placeholder={
-                  mode === "signup" ? "Min. 6 characters" : "Your password"
-                }
-                value={form.password}
-                onChange={(v) => set("password", v)}
-              />
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{ width: "100%", justifyContent: "center", marginTop: 24 }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner" />{" "}
-                  {mode === "signin" ? "Signing in..." : "Creating account..."}
-                </>
-              ) : mode === "signin" ? (
-                "Sign In →"
-              ) : (
-                "Create Account →"
-              )}
-            </button>
-          </form>
+          {mode === "signin" ? <SignInForm /> : <SignUpForm />}
 
           {mode === "signin" && (
             <p
@@ -306,58 +265,6 @@ export default function SignInClient() {
         </a>
       </p>
     </main>
-  );
-}
-
-function Field({
-  label,
-  type,
-  placeholder,
-  value,
-  onChange,
-}: {
-  label: string;
-  type: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div>
-      <label
-        style={{
-          display: "block",
-          fontSize: 12,
-          fontWeight: 600,
-          color: "var(--slate)",
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </label>
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        required
-        style={{
-          width: "100%",
-          padding: "11px 14px",
-          borderRadius: 10,
-          fontSize: 14,
-          background: "rgba(255,255,255,0.04)",
-          color: "var(--white)",
-          border: `1px solid ${focused ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`,
-          outline: "none",
-          transition: "border-color 0.2s",
-          fontFamily: "Inter,sans-serif",
-        }}
-      />
-    </div>
   );
 }
 
