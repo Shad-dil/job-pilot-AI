@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, ChangeEvent } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { resumeSchema } from "../api/analyze/schema";
 import { parsePdf } from "../actions/parsePdf";
 
 export default function AnalyzePage() {
-  const [resume, setResume] = useState("");
+  const [resume, setResume] = useState<string[] | "">("");
   const [jd, setJD] = useState("");
   // const [result, setResult] = useState({});
   // const [isLoading, setLoading] = useState(false);
@@ -36,42 +36,9 @@ export default function AnalyzePage() {
         background: "var(--bg-deep)",
         minHeight: "100vh",
         color: "var(--white)",
+        marginTop: "30px",
       }}
     >
-      <nav
-        className="border-b border-white/5 px-6 py-4"
-        style={{
-          background: "rgba(10,15,30,0.9)",
-          backdropFilter: "blur(16px)",
-        }}
-      >
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-              style={{
-                background: "linear-gradient(135deg, #6366F1, #818CF8)",
-              }}
-            >
-              ✈
-            </div>
-            <span
-              className="font-bold text-lg"
-              style={{ fontFamily: "Space Grotesk, sans-serif" }}
-            >
-              JobPilot <span style={{ color: "#818CF8" }}>AI</span>
-            </span>
-          </Link>
-          <Link
-            href="/"
-            className="text-sm transition-colors hover:text-white"
-            style={{ color: "var(--slate)" }}
-          >
-            ← Back to home
-          </Link>
-        </div>
-      </nav>
-
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="text-center mb-10">
           <h1
@@ -122,7 +89,7 @@ export default function AnalyzePage() {
                   type="file"
                   className="w-full h-64 text-sm resize-none rounded-xl p-4 outline-none"
                   onChange={(e) => {
-                    const file = e.target.files[0];
+                    const file = e.target.files?.[0];
                     if (file) {
                       handleFileUpload(file);
                     }
@@ -159,7 +126,7 @@ export default function AnalyzePage() {
                   className="text-sm mb-4 text-center"
                   style={{ color: "#EF4444" }}
                 >
-                  {error}
+                  {error.message}
                 </p>
               )}
               <button
