@@ -2,28 +2,17 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema } from "./schema";
+
 import SignInForm from "@/components/SignInForm";
 import SignUpForm from "@/components/SignUpForm";
 
 export default function SignInClient() {
-  const {
-    register,
-    handleSubmit: handleLogin,
-    formState,
-  } = useForm({
-    resolver: zodResolver(loginSchema),
-  });
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/analyze";
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const urlError = searchParams.get("error");
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState(
     urlError === "OAuthAccountNotLinked"
@@ -31,62 +20,10 @@ export default function SignInClient() {
       : "",
   );
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
   const handleGoogle = async () => {
     setGoogleLoading(true);
     setError("");
     await signIn("google", { callbackUrl });
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    const res = await signIn("credentials", {
-      email: form.email,
-      password: form.password,
-      redirect: false,
-    });
-    setLoading(false);
-    if (res?.error) setError(friendlyError(res.error));
-    else router.push(callbackUrl);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error);
-        setLoading(false);
-        return;
-      }
-      const signin = await signIn("credentials", {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      });
-      setLoading(false);
-      if (signin?.error) setError(friendlyError(signin.error));
-      else router.push(callbackUrl);
-    } catch {
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  const friendlyError = (e: string) => {
-    if (e.includes("No account")) return "No account found with this email.";
-    if (e.includes("Incorrect")) return "Incorrect password. Please try again.";
-    return "Something went wrong. Please try again.";
   };
 
   return (
@@ -146,22 +83,6 @@ export default function SignInClient() {
         </div>
 
         <div style={{ padding: 32 }}>
-          {error && (
-            <div
-              style={{
-                padding: "12px 16px",
-                borderRadius: 10,
-                background: "rgba(239,68,68,0.1)",
-                border: "1px solid rgba(239,68,68,0.25)",
-                color: "#EF4444",
-                fontSize: 13,
-                marginBottom: 20,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
           {/* Google */}
           <button
             onClick={handleGoogle}
