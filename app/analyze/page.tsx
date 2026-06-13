@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { resumeSchema } from "../api/analyze/schema";
-import { parsePdf } from "../actions/parsePdf";
+import { parsePdf } from "../actions/actions";
+// import { parsePdf } from "../actions/parsePdf";
 
 export default function AnalyzePage() {
   const [resume, setResume] = useState<string[] | "">("");

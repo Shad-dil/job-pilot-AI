@@ -1,4 +1,4 @@
-import { registerUser } from "@/app/actions/registerUser";
+import { registerUser } from "@/app/actions/actions";
 import { signupSchema } from "@/app/auth/signin/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
