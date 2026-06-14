@@ -164,8 +164,8 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <a
-                href="#analyze"
+              <Link
+                href="/analyze"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-white transition-all hover:scale-105 hover:shadow-2xl"
                 style={{
                   background: "linear-gradient(135deg, #6366F1, #818CF8)",
@@ -174,7 +174,7 @@ export default function Home() {
                 }}
               >
                 Analyze my resume →
-              </a>
+              </Link>
               <a
                 href="#how"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-medium transition-all hover:bg-white/5"
