@@ -2,19 +2,21 @@
 // import { useObject } from "ai/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { resumeSchema } from "@/app/api/analyze/schema";
-import { parsePdf } from "../actions/actions";
+import { getAnalysisResume, parsePdf, saveAnalysis } from "../actions/actions";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
-// import { parsePdf } from "@/lib/parsePdf"; // your existing parser
+import { z } from "zod";
 
+type ResumeAnalysis = z.infer<typeof resumeSchema>;
 export default function AnalyzePage() {
-  const [resume, setResume] = useState<string[]>([]);
-
+  const [resume, setResume] = useState<string>("");
+  const { data: session } = useSession();
   const [jd, setJD] = useState("");
   const [fileName, setFileName] = useState("");
   const [parseError, setParseError] = useState("");
-  const [cachedResult, setCacheResult] = useState(null);
+  const [cachedResult, setCacheResult] = useState<ResumeAnalysis | null>(null);
+  const hasRedirected = useRef(false);
 
   const router = useRouter();
   const { submit, error, object, isLoading } = useObject({
@@ -25,17 +27,56 @@ export default function AnalyzePage() {
 
   useEffect(() => {
     if (object?.matchScore && !isLoading) {
-      localStorage.setItem(
-        "latestAnalysis",
-        JSON.stringify({
-          result: object,
-          fileName,
-          jd,
-        }),
-      );
-      router.push("/analyze/result");
+      if (hasRedirected.current) return; // ← prevent double run
+      hasRedirected.current = true;
+
+      const run = async () => {
+        localStorage.setItem(
+          "latestAnalysis",
+          JSON.stringify({
+            result: object,
+            fileName,
+            jd,
+            rawText: resume,
+          }),
+        );
+
+        if (session?.user) {
+          try {
+            const score = object.matchScore;
+            if (!score) return;
+            const result = await saveAnalysis({
+              filename: fileName,
+              rawText: resume,
+              role: "general",
+              level: "Mid",
+              targetType: jd ? "jd" : "general",
+              targetText: jd || undefined,
+              score: score,
+              resultJson: object,
+            });
+
+            if (result) {
+              localStorage.setItem(
+                "latestAnalysisIds",
+                JSON.stringify({
+                  resumeId: result.resumeId,
+                  analysisId: result.analysisId,
+                }),
+              );
+            }
+
+            // localStorage.removeItem("latestAnalysis");
+          } catch (e) {
+            console.error("Failed to save to DB:", e);
+          }
+        }
+
+        router.push("/analyze/result");
+      };
+      run();
     }
-  }, [isLoading]);
+  }, [object, isLoading]);
 
   const handleFileUpload = async (file: File) => {
     setParseError("");
@@ -48,6 +89,11 @@ export default function AnalyzePage() {
       if (cached) {
         setCacheResult(JSON.parse(cached));
       }
+      const dbResult = await getAnalysisResume(file.name);
+      if (dbResult) {
+        setCacheResult(dbResult.resultJson as ResumeAnalysis);
+        localStorage.setItem(key, JSON.stringify(dbResult.resultJson));
+      }
     } catch {
       setParseError("Failed to parse PDF. Try a different file.");
     }
@@ -56,6 +102,9 @@ export default function AnalyzePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!resume) return;
+
+    hasRedirected.current = false; // ← reset for new analysis
+
     if (cachedResult) {
       localStorage.setItem(
         "latestAnalysis",

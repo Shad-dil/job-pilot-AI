@@ -15,11 +15,16 @@ export default function ResultPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!data) {
-      // No result found — send back to form
+    const stored = localStorage.getItem("latestAnalysis");
+
+    if (!stored) {
+      // Nothing in localStorage → send back to form
       router.push("/analyze");
       return;
     }
+
+    // Found it → parse and set
+    setData(JSON.parse(stored));
   }, []);
 
   const handleOptimize = () => {
