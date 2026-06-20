@@ -79,6 +79,7 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
     }
+    const updated = resumeText.replace(original, improved);
     saveTimer.current = setTimeout(async () => {
       try {
         await updateResumeText(analysis.resumeId, updated);
