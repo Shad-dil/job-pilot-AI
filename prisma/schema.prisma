@@ -55,16 +55,17 @@ model User {
   sessions      Session[]
 }
 
-model Resume {
-  id        String     @id @default(cuid())
-  userId    String
-  filename  String
-  rawText   String
-  createdAt DateTime   @default(now())
-  analyses  Analysis[]
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
 
+model Resume {
+  id             String     @id @default(cuid())
+  userId         String
+  filename       String
+  rawText        String
+  structuredJson Json?      // ← add this
+  createdAt      DateTime   @default(now())
+  analyses       Analysis[]
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 model Analysis {
   id         String   @id @default(cuid())
   userId     String

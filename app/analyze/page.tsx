@@ -7,6 +7,7 @@ import { resumeSchema } from "@/app/api/analyze/schema";
 import { getAnalysisResume, parsePdf, saveAnalysis } from "../actions/actions";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { z } from "zod";
+import ResumeScanner from "@/components/ResumeScanner";
 
 type ResumeAnalysis = z.infer<typeof resumeSchema>;
 export default function AnalyzePage() {
@@ -17,7 +18,6 @@ export default function AnalyzePage() {
   const [parseError, setParseError] = useState("");
   const [cachedResult, setCacheResult] = useState<ResumeAnalysis | null>(null);
   const hasRedirected = useRef(false);
-
   const router = useRouter();
   const { submit, error, object, isLoading } = useObject({
     api: "/api/analyze",
@@ -134,7 +134,32 @@ export default function AnalyzePage() {
         paddingTop: 80,
       }}
     >
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
+      <div
+        style={{
+          maxWidth: 900,
+          margin: "0 auto",
+          padding: "40px 24px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+        // className="relative overflow-hidden rounded-[20px] border border-indigo-500/20 bg-[var(--bg-card)]"
+      >
+        {isLoading && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[rgba(3,7,18,0.75)] backdrop-blur-sm">
+            <div className="w-full max-w-xl">
+              <ResumeScanner />
+            </div>
+
+            <div className="text-center">
+              <p className="text-xl font-semibold text-white">
+                Analyzing your resume...
+              </p>
+              <p className="mt-2 text-sm text-slate-400">
+                This usually takes 10–20 seconds.
+              </p>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1
