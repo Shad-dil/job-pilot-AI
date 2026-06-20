@@ -217,7 +217,7 @@ export default function ResumePreview({ data, highlightedBullet }: Props) {
                   key={j}
                   style={{ display: "flex", gap: 8, marginBottom: 3 }}
                 >
-                  <span style={{ flexShrink: 0 }}>▪</span>
+                  <span style={{ flexShrink: 0 }}>•</span>
                   <span
                     style={{ fontSize: 12, color: "#333", lineHeight: 1.6 }}
                   >

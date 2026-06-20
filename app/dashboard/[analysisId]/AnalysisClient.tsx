@@ -49,8 +49,21 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
     improved: string,
     index: number,
   ) => {
-    const updated = resumeText.replace(original, improved);
-    setResumeText(updated);
+    setResumeText((prev) => prev.replace(original, improved));
+    setLiveStructured((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        experience: prev.experience.map((exp) => ({
+          ...exp,
+          bullets: exp.bullets.map((b) => (b === original ? improved : b)),
+        })),
+        projects: prev.projects?.map((proj) => ({
+          ...proj,
+          bullets: proj.bullets.map((b) => (b === original ? improved : b)),
+        })),
+      };
+    });
 
     setAppliedBullet((prev) => new Set([...prev, index]));
     // Animate score up
