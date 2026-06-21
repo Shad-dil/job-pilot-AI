@@ -62,7 +62,7 @@ export async function getUserAnalyses() {
       resume: {
         select: {
           filename: true,
-          structuredJson: true, // ← for preview
+          structuredJson: true,
         },
       },
     },

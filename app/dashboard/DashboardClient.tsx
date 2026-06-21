@@ -18,7 +18,7 @@ type Analysis = {
   targetType: string;
   createdAt: Date;
   resultJson: any;
-  resume: { filename: string };
+  resume: { filename: string; structuredJson?: any } | null; // ← nullable
 };
 
 export default function DashboardClient({
@@ -204,7 +204,7 @@ export default function DashboardClient({
                     "latestAnalysis",
                     JSON.stringify({
                       result: a.resultJson,
-                      fileName: a.resume.filename,
+                      fileName: a?.resume?.filename,
                       jd: a.targetType,
                     }),
                   );
@@ -254,7 +254,7 @@ export default function DashboardClient({
                           textWrap: "wrap",
                         }}
                       >
-                        {a.resume.filename}
+                        {a?.resume?.filename}
                       </p>
                       <p
                         style={{

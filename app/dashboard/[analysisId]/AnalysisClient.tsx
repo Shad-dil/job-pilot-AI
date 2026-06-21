@@ -498,7 +498,12 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
           {/* Section scores */}
           {suggestions?.sectionScores && (
             <SectionScores
-              scores={suggestions.sectionScores}
+              scores={
+                suggestions.sectionScores as Record<
+                  string,
+                  { score?: number; feedback?: string } | null | undefined
+                >
+              }
               scoreColor={scoreColor}
             />
           )}
@@ -1263,7 +1268,7 @@ function SectionScores({
 }: {
   scores: Record<
     string,
-    { score: number; feedback: string } | null | undefined
+    { score?: number; feedback?: string } | null | undefined
   >;
   scoreColor: (s: number) => string;
 }) {
@@ -1289,7 +1294,7 @@ function SectionScores({
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {Object.entries(scores).map(
           ([section, data]) =>
-            data && (
+            data?.score !== undefined && (
               <div key={section}>
                 <div
                   style={{
@@ -1335,9 +1340,11 @@ function SectionScores({
                     }}
                   />
                 </div>
-                <p style={{ fontSize: 11, color: "var(--slate)" }}>
-                  {data.feedback}
-                </p>
+                {data.feedback && (
+                  <p style={{ fontSize: 11, color: "var(--slate)" }}>
+                    {data.feedback}
+                  </p>
+                )}
               </div>
             ),
         )}
