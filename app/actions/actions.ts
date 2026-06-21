@@ -184,8 +184,8 @@ export async function saveGuestAnalysis(data: {
 
   await prisma.analysis.create({
     data: {
-      userId: null,
-      resumeId: null,
+      userId: undefined,
+      resumeId: undefined,
       tempToken,
       role: "general",
       level: "Mid",
