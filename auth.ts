@@ -38,6 +38,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
 
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allows relative URLs like /dashboard?claim=xxx
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows full URLs on same origin
+      if (url.startsWith(baseUrl)) return url;
+      return baseUrl;
+    },
     async jwt({ token, user, account }) {
       if (user) token.id = user.id;
 

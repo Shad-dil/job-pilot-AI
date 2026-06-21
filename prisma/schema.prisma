@@ -58,25 +58,30 @@ model User {
 
 model Resume {
   id             String     @id @default(cuid())
-  userId         String
+  userId         String?    // ← make nullable for guest
   filename       String
   rawText        String
-  structuredJson Json?      // ← add this
+  structuredJson Json?
   createdAt      DateTime   @default(now())
   analyses       Analysis[]
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 model Analysis {
   id         String   @id @default(cuid())
-  userId     String
-  resumeId   String
+  userId     String?  // ← make nullable for guest
+  resumeId   String?  // ← make nullable for guest
+  tempToken  String?  @unique // ← guest identifier
   role       String
   level      String
   targetType String
   targetText String?
   score      Int
   resultJson Json
+  // store these directly so we can claim later without losing data
+  guestFilename String?  // ← filename for guest
+  guestRawText  String?  // ← rawText for guest
   createdAt  DateTime @default(now())
-  resume     Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume     Resume?  @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -2,7 +2,7 @@
 import { loginSchema, signupSchema } from "@/app/auth/signin/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -24,7 +24,8 @@ const SignInForm = () => {
   const [error, setError] = useState("");
   const router = useRouter();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const handleSignIn = async (data: { email: string; password: string }) => {
     console.log(data);
     try {
@@ -36,10 +37,12 @@ const SignInForm = () => {
         redirect: false,
       });
 
-      if (res?.error) {
-        setError("Wrong Email or Password");
-        reset();
-      } else router.push("/dashboard");
+      if (res?.ok) {
+        console.log("Redirecting to:", callbackUrl); // ← check this
+        router.push(callbackUrl); // ← use callbackUrl, not hardcoded "/dashboard"
+      } else {
+        setError("Invalid email or password");
+      }
     } catch {
     } finally {
       setIsloading(false);

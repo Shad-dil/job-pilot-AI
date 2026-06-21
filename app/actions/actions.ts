@@ -54,11 +54,18 @@ export async function getUserAnalyses() {
   const session = await auth();
   if (!session?.user) return [];
 
-  const userId = session?.user.id;
+  const userId = (session.user as any).id as string;
 
   return prisma.analysis.findMany({
     where: { userId },
-    include: { resume: { select: { filename: true } } },
+    include: {
+      resume: {
+        select: {
+          filename: true,
+          structuredJson: true, // ← for preview
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -91,19 +98,6 @@ export async function saveAnalysis(data: {
 
   const userId = (session.user as any).id as string;
   if (!userId) throw new Error("User ID not found");
-
-  const existing = await prisma.analysis.findFirst({
-    where: {
-      userId,
-      score: data.score,
-      resume: { filename: data.filename },
-    },
-  });
-
-  if (existing) {
-    console.log("⏭ Already exists, skipping save");
-    return { resumeId: existing.resumeId, analysisId: existing.id };
-  }
 
   const resume = await prisma.resume.create({
     data: {
@@ -170,4 +164,142 @@ ${rawText.slice(0, 4000)}`,
   } catch (e) {
     console.log(e instanceof Error ? e.message : "Something went wrong");
   }
+}
+
+// ── Save guest analysis (not logged in) ──────────────────────
+export async function saveGuestAnalysis(data: {
+  filename: string;
+  rawText: string;
+  score: number;
+  resultJson: object;
+  targetText?: string;
+}) {
+  const tempToken = crypto.randomUUID();
+
+  console.log("Saving guest analysis:", {
+    filename: data.filename,
+    rawTextLength: data.rawText?.length,
+    score: data.score,
+  });
+
+  await prisma.analysis.create({
+    data: {
+      userId: null,
+      resumeId: null,
+      tempToken,
+      role: "general",
+      level: "Mid",
+      targetType: data.targetText ? "jd" : "general",
+      targetText: data.targetText,
+      score: data.score,
+      resultJson: data.resultJson,
+      guestFilename: data.filename,
+      guestRawText: data.rawText, // ← make sure this isn't empty
+    },
+  });
+
+  console.log("Guest analysis saved with token:", tempToken);
+  return tempToken;
+}
+
+// ── Claim guest analysis after login ─────────────────────────
+export async function claimGuestAnalysis(tempToken: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Not authenticated");
+
+  const userId = (session.user as any).id as string;
+  if (!userId) throw new Error("User ID not found");
+
+  console.log("Claiming token:", tempToken, "for user:", userId);
+
+  const guestAnalysis = await prisma.analysis.findUnique({
+    where: { tempToken },
+  });
+
+  console.log("Found guest analysis:", {
+    id: guestAnalysis?.id,
+    hasRawText: !!guestAnalysis?.guestRawText,
+    rawTextLength: guestAnalysis?.guestRawText?.length,
+    filename: guestAnalysis?.guestFilename,
+  });
+
+  if (!guestAnalysis) {
+    console.log("No guest analysis found for token:", tempToken);
+    return null;
+  }
+
+  // Create resume
+  const resume = await prisma.resume.create({
+    data: {
+      userId,
+      filename: guestAnalysis.guestFilename ?? "resume.pdf",
+      rawText: guestAnalysis.guestRawText ?? "",
+    },
+  });
+
+  console.log("Resume created:", resume.id);
+
+  // Parse structured resume — with explicit error handling
+  if (guestAnalysis.guestRawText && guestAnalysis.guestRawText.length > 0) {
+    console.log("Starting parseAndSaveStructuredResume for:", resume.id);
+    parseAndSaveStructuredResume(guestAnalysis.guestRawText, resume.id)
+      .then(() =>
+        console.log("✅ Structured JSON saved for claimed resume:", resume.id),
+      )
+      .catch((e) =>
+        console.error("❌ Parse failed for claimed resume:", e.message),
+      );
+  } else {
+    console.log("⚠ No rawText to parse for resume:", resume.id);
+  }
+
+  // Update analysis
+  const updated = await prisma.analysis.update({
+    where: { tempToken },
+    data: {
+      userId,
+      resumeId: resume.id,
+      tempToken: null,
+      guestFilename: null,
+      guestRawText: null,
+    },
+  });
+
+  console.log("Analysis claimed successfully:", updated.id);
+  // revalidatePath("/dashboard");
+  return updated.id;
+}
+
+// ── Get analysis by ID (for dashboard/[analysisId]) ──────────
+export async function getAnalysisById(id: string) {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  const userId = (session.user as any).id as string;
+
+  return prisma.analysis.findFirst({
+    where: { id, userId },
+    include: {
+      resume: {
+        select: {
+          filename: true,
+          rawText: true,
+          structuredJson: true,
+        },
+      },
+    },
+  });
+}
+
+// actions/analysis.ts
+export async function getStructuredResume(resumeId: string) {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  const resume = await prisma.resume.findUnique({
+    where: { id: resumeId },
+    select: { structuredJson: true },
+  });
+
+  return resume?.structuredJson ?? null;
 }

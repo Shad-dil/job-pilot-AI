@@ -14,18 +14,18 @@ export default function ResultPage() {
   });
   const router = useRouter();
 
-  useEffect(() => {
-    const stored = localStorage.getItem("latestAnalysis");
+  // useEffect(() => {
+  //   const stored = localStorage.getItem("latestAnalysis");
 
-    if (!stored) {
-      // Nothing in localStorage → send back to form
-      router.push("/analyze");
-      return;
-    }
+  //   if (!stored) {
+  //     // Nothing in localStorage → send back to form
+  //     router.push("/analyze");
+  //     return;
+  //   }
 
-    // Found it → parse and set
-    setData(JSON.parse(stored));
-  }, []);
+  //   // Found it → parse and set
+  //   setData(JSON.parse(stored));
+  // }, []);
 
   const handleOptimize = () => {
     if (!session) {

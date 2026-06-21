@@ -1,8 +1,12 @@
 // app/dashboard/DashboardClient.tsx
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { getUserAnalyses, saveAnalysis } from "../actions/actions";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  claimGuestAnalysis,
+  getUserAnalyses,
+  saveAnalysis,
+} from "../actions/actions";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 
@@ -40,35 +44,28 @@ export default function DashboardClient({
     }
   };
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    if (hasSaved.current) return;
-    hasSaved.current = true;
+    const claimToken = searchParams.get("claim");
+    if (!claimToken) return;
 
-    const pending = localStorage.getItem("latestAnalysis");
-    if (!pending) return;
-
-    const { result, fileName, jd, rawText } = JSON.parse(pending);
-    if (!result?.matchScore || !fileName) return;
-
-    const save = async () => {
+    const claim = async () => {
       try {
-        await saveAnalysis({
-          filename: fileName,
-          rawText: rawText ?? "",
-          role: "general",
-          level: "Mid",
-          targetType: jd ? "jd" : "general",
-          targetText: jd || undefined,
-          score: result.matchScore,
-          resultJson: result,
-        });
-        localStorage.removeItem("latestAnalysis"); // ← clear after saving
+        const analysisId = await claimGuestAnalysis(claimToken);
+        // Remove claim param and go to the analysis directly
+        if (analysisId) {
+          router.replace(`/dashboard/${analysisId}`);
+        } else {
+          router.replace("/dashboard");
+        }
       } catch (e) {
-        console.error("Failed to save pending analysis:", e);
+        console.error("Failed to claim:", e);
+        router.replace("/dashboard");
       }
     };
 
-    save();
+    claim();
   }, []);
 
   const scoreColor = (s: number) =>

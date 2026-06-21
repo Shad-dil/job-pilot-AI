@@ -9,7 +9,9 @@ import SignUpForm from "@/components/SignUpForm";
 export default function SignInClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  console.log("callbackUrl received:", callbackUrl);
   const urlError = searchParams.get("error");
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");

@@ -14,8 +14,8 @@ const page = async ({
   return (
     <AnalysisClient
       analysis={analysis}
-      rawText={analysis.resume.rawText}
-      filename={analysis.resume.filename}
+      rawText={analysis?.resume?.rawText as string}
+      filename={analysis?.resume?.filename as string}
     />
   );
 };
