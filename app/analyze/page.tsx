@@ -19,6 +19,7 @@ export default function AnalyzePage() {
   const [optimizeLoading, setOptimizeLoading] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { submit, error, object, isLoading } = useObject({
     api: "/api/analyze",
@@ -54,7 +55,19 @@ export default function AnalyzePage() {
       targetType: jd ? "jd" : "general",
     });
   };
+  const resetForm = () => {
+    setResume("");
+    setFileName("");
+    setJD("");
+    setParseError("");
+    // setError(null);
+    setShowResults(false);
 
+    // Reset the actual file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
   const handleOptimize = async () => {
     if (!object?.matchScore) return;
     setOptimizeLoading(true);
@@ -99,24 +112,13 @@ export default function AnalyzePage() {
 
   return (
     <main
-      style={{
-        background: "var(--bg-deep)",
-        minHeight: "100vh",
-        color: "var(--white)",
-        paddingTop: 80,
-      }}
+      className="min-h-screen pt-20"
+      style={{ background: "var(--bg-deep)", color: "var(--white)" }}
     >
-      <div
-        style={{
-          maxWidth: 900,
-          margin: "0 auto",
-          padding: "40px 24px",
-          position: "relative",
-        }}
-      >
+      <div className="max-w-4xl mx-auto px-4 py-10 relative">
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[rgba(3,7,18,0.75)] backdrop-blur-sm">
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[rgba(3,7,18,0.75)] backdrop-blur-sm rounded-2xl">
             <div className="w-full max-w-xl">
               <ResumeScanner />
             </div>
@@ -131,297 +133,225 @@ export default function AnalyzePage() {
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <h1
-            style={{
-              fontSize: 38,
-              fontWeight: 700,
-              fontFamily: "Space Grotesk,sans-serif",
-              marginBottom: 10,
-            }}
-          >
-            Resume Analysis
-          </h1>
-          <p style={{ color: "var(--slate)" }}>
-            Upload your resume and optionally paste a job description for a
-            targeted analysis.
-          </p>
-        </div>
-
-        {/* Form — always visible so user can re-analyze with different JD */}
-        <form onSubmit={handleSubmit}>
-          <div
-            style={{
-              background: "var(--bg-card)",
-              borderRadius: 20,
-              border: "1px solid rgba(99,102,241,0.2)",
-              overflow: "hidden",
-              marginBottom: 32,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                borderBottom: "1px solid rgba(99,102,241,0.12)",
-              }}
-            >
-              {/* Resume upload */}
-              <div
-                style={{
-                  padding: 24,
-                  borderRight: "1px solid rgba(99,102,241,0.12)",
-                }}
+        {/* ── FORM ── */}
+        {(!object || !showResults) && (
+          <>
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1
+                className="text-3xl md:text-5xl font-bold mb-3"
+                style={{ fontFamily: "Space Grotesk,sans-serif" }}
               >
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "#6366F1",
-                    marginBottom: 12,
-                  }}
-                >
-                  Your Resume
-                </label>
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: 200,
-                    borderRadius: 12,
-                    cursor: "pointer",
-                    gap: 12,
-                    border: `2px dashed ${fileName ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`,
-                    background: fileName
-                      ? "rgba(99,102,241,0.06)"
-                      : "rgba(255,255,255,0.02)",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleFileUpload(f);
-                    }}
-                  />
-                  {fileName ? (
-                    <>
-                      <span style={{ fontSize: 32 }}>📄</span>
-                      <span
-                        style={{
-                          fontSize: 13,
-                          color: "#22C55E",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {fileName}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--slate)" }}>
-                        Click to change
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 32 }}>📁</span>
-                      <span style={{ fontSize: 13, color: "var(--slate)" }}>
-                        Click to upload PDF
-                      </span>
-                      <span
-                        style={{ fontSize: 11, color: "rgba(136,146,164,0.6)" }}
-                      >
-                        PDF files only
-                      </span>
-                    </>
-                  )}
-                </label>
-                {parseError && (
-                  <p style={{ color: "#EF4444", fontSize: 12, marginTop: 8 }}>
-                    {parseError}
-                  </p>
-                )}
-              </div>
-
-              {/* JD textarea */}
-              <div style={{ padding: 24 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "#6366F1",
-                    marginBottom: 12,
-                  }}
-                >
-                  Job Description{" "}
-                  <span
-                    style={{
-                      color: "var(--slate)",
-                      textTransform: "none",
-                      letterSpacing: 0,
-                      fontWeight: 400,
-                    }}
-                  >
-                    (optional)
-                  </span>
-                </label>
-                <textarea
-                  value={jd}
-                  onChange={(e) => setJD(e.target.value)}
-                  placeholder="Paste the job description here for a targeted analysis. Leave empty for a general review."
-                  style={{
-                    width: "100%",
-                    height: 200,
-                    background: "rgba(255,255,255,0.04)",
-                    color: "var(--white)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 12,
-                    padding: 14,
-                    fontSize: 13,
-                    fontFamily: "Inter,sans-serif",
-                    resize: "none",
-                    outline: "none",
-                    lineHeight: 1.6,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div style={{ padding: 24 }}>
-              {error && (
-                <p
-                  style={{
-                    color: "#EF4444",
-                    fontSize: 13,
-                    textAlign: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  {error.message}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={isLoading || !resume}
-                style={{
-                  width: "100%",
-                  padding: "14px 0",
-                  borderRadius: 12,
-                  border: "none",
-                  background: "linear-gradient(135deg,#6366F1,#818CF8)",
-                  color: "white",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: isLoading || !resume ? "not-allowed" : "pointer",
-                  opacity: !resume ? 0.5 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  fontFamily: "Space Grotesk,sans-serif",
-                  boxShadow: "0 4px 20px rgba(99,102,241,0.35)",
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <span
-                      style={{
-                        width: 16,
-                        height: 16,
-                        border: "2px solid rgba(255,255,255,0.3)",
-                        borderTopColor: "white",
-                        borderRadius: "50%",
-                        display: "inline-block",
-                        animation: "spin 0.7s linear infinite",
-                      }}
-                    />{" "}
-                    Analyzing...
-                  </>
-                ) : showResults ? (
-                  "Re-analyze →"
-                ) : (
-                  "Run full analysis →"
-                )}
-              </button>
+                Resume Analysis
+              </h1>
               <p
-                style={{
-                  textAlign: "center",
-                  fontSize: 12,
-                  color: "var(--slate)",
-                  marginTop: 10,
-                }}
+                className="text-sm md:text-base"
+                style={{ color: "var(--slate)" }}
               >
-                {jd
-                  ? "Targeted analysis against your job description"
-                  : "General resume analysis — add a JD for better results"}
+                Upload your resume and optionally paste a job description for a
+                targeted analysis.
               </p>
             </div>
-          </div>
-        </form>
 
-        {/* Results — shown on same page, no redirect */}
+            <form onSubmit={handleSubmit}>
+              <div
+                className="rounded-2xl overflow-hidden mb-8 border border-indigo-500/20"
+                style={{ background: "var(--bg-card)" }}
+              >
+                {/* Input grid — 2 cols on desktop, 1 col on mobile */}
+                <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-indigo-500/10">
+                  {/* Resume upload */}
+                  <div className="p-5 md:p-6">
+                    <label
+                      className="block text-[11px] font-bold tracking-widest uppercase mb-3"
+                      style={{ color: "#6366F1" }}
+                    >
+                      Your Resume
+                    </label>
+                    <label
+                      className="flex flex-col items-center justify-center h-44 md:h-52 rounded-xl cursor-pointer gap-3 transition-all"
+                      style={{
+                        border: `2px dashed ${fileName ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`,
+                        background: fileName
+                          ? "rgba(99,102,241,0.06)"
+                          : "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleFileUpload(f);
+                        }}
+                      />
+                      {fileName ? (
+                        <>
+                          <span className="text-3xl">📄</span>
+                          <span
+                            className="text-xs font-semibold text-center px-2 max-w-[180px] truncate"
+                            style={{ color: "#22C55E" }}
+                          >
+                            {fileName}
+                          </span>
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--slate)" }}
+                          >
+                            Tap to change
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-3xl">📁</span>
+                          <span
+                            className="text-sm"
+                            style={{ color: "var(--slate)" }}
+                          >
+                            Tap to upload PDF
+                          </span>
+                          <span
+                            className="text-xs"
+                            style={{ color: "rgba(136,146,164,0.6)" }}
+                          >
+                            PDF files only
+                          </span>
+                        </>
+                      )}
+                    </label>
+                    {parseError && (
+                      <p className="text-xs mt-2" style={{ color: "#EF4444" }}>
+                        {parseError}
+                      </p>
+                    )}
+                    {resume && !parseError && (
+                      <p className="text-xs mt-2" style={{ color: "#22C55E" }}>
+                        ✓ Resume parsed successfully
+                      </p>
+                    )}
+                  </div>
+
+                  {/* JD textarea */}
+                  <div className="p-5 md:p-6">
+                    <label
+                      className="block text-[11px] font-bold tracking-widest uppercase mb-3"
+                      style={{ color: "#6366F1" }}
+                    >
+                      Job Description{" "}
+                      <span
+                        className="normal-case tracking-normal font-normal"
+                        style={{ color: "var(--slate)" }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      value={jd}
+                      onChange={(e) => setJD(e.target.value)}
+                      placeholder="Paste the job description here for a targeted analysis. Leave empty for a general review."
+                      className="w-full h-44 md:h-52 rounded-xl p-3 text-sm resize-none outline-none leading-relaxed"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        color: "var(--white)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        fontFamily: "Inter,sans-serif",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <div className="p-5 md:p-6 border-t border-indigo-500/10">
+                  {error && (
+                    <p
+                      className="text-sm text-center mb-3"
+                      style={{ color: "#EF4444" }}
+                    >
+                      {error.message}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isLoading || !resume}
+                    className="w-full py-4 rounded-xl font-semibold text-white text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: "linear-gradient(135deg,#6366F1,#818CF8)",
+                      boxShadow: "0 4px 20px rgba(99,102,241,0.35)",
+                      fontFamily: "Space Grotesk,sans-serif",
+                    }}
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
+                        Analyzing...
+                      </>
+                    ) : showResults ? (
+                      "Re-analyze →"
+                    ) : (
+                      "Run full analysis →"
+                    )}
+                  </button>
+                  <p
+                    className="text-center text-xs mt-2.5"
+                    style={{ color: "var(--slate)" }}
+                  >
+                    {jd
+                      ? "Targeted analysis against your job description"
+                      : "General resume analysis — add a JD for better results"}
+                  </p>
+                </div>
+              </div>
+            </form>
+          </>
+        )}
+
+        {/* ── RESULTS ── */}
         {showResults && object && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="flex flex-col gap-5">
             {/* Result header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
+            <div className="flex items-start justify-between flex-wrap gap-3">
               <div>
                 <h2
-                  style={{
-                    fontFamily: "Space Grotesk,sans-serif",
-                    fontSize: 24,
-                    fontWeight: 700,
-                    marginBottom: 4,
-                  }}
+                  className="text-2xl font-bold mb-1"
+                  style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
                   Analysis Results
                 </h2>
-                <p style={{ fontSize: 13, color: "var(--slate)" }}>
+                <p className="text-sm" style={{ color: "var(--slate)" }}>
                   📄 {fileName}
                 </p>
               </div>
-              {jd && (
-                <span
+              <div className="flex items-center gap-2 flex-wrap">
+                {jd && (
+                  <span
+                    className="text-xs px-3 py-1 rounded-lg font-medium border"
+                    style={{
+                      background: "rgba(99,102,241,0.12)",
+                      color: "#818CF8",
+                      borderColor: "rgba(99,102,241,0.2)",
+                    }}
+                  >
+                    Targeted: Custom JD
+                  </span>
+                )}
+                <button
+                  onClick={resetForm}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
                   style={{
-                    fontSize: 12,
-                    padding: "4px 12px",
-                    borderRadius: 8,
-                    background: "rgba(99,102,241,0.12)",
-                    color: "#818CF8",
-                    border: "1px solid rgba(99,102,241,0.2)",
+                    background: "linear-gradient(135deg,#6366F1,#818CF8)",
+                    boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
+                    fontFamily: "Space Grotesk,sans-serif",
                   }}
                 >
-                  Targeted: Custom JD
-                </span>
-              )}
+                  + New Analysis
+                </button>
+              </div>
             </div>
 
-            {/* Score row */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: 16,
-              }}
-            >
+            {/* Score cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ScoreCard
                 label="Match Score"
                 score={object?.matchScore}
@@ -445,176 +375,101 @@ export default function AnalyzePage() {
             {/* Top recommendation */}
             {object?.topRecommendation && (
               <div
+                className="px-4 py-3 rounded-xl border-l-2"
                 style={{
-                  padding: "14px 18px",
-                  borderRadius: 12,
                   background: "rgba(99,102,241,0.1)",
                   border: "1px solid rgba(99,102,241,0.25)",
                   borderLeft: "3px solid #6366F1",
                 }}
               >
                 <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#818CF8",
-                  }}
+                  className="text-[11px] font-bold uppercase tracking-wider"
+                  style={{ color: "#818CF8" }}
                 >
                   Top priority:{" "}
                 </span>
-                <span style={{ fontSize: 14, color: "var(--white)" }}>
+                <span className="text-sm" style={{ color: "var(--white)" }}>
                   {object.topRecommendation}
                 </span>
               </div>
             )}
 
             {/* Strengths + Weaknesses */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: 16,
-              }}
-            >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Strengths */}
               <div
-                style={{
-                  background: "var(--bg-card)",
-                  borderRadius: 16,
-                  border: "1px solid rgba(34,197,94,0.2)",
-                  padding: 24,
-                }}
+                className="rounded-2xl p-6 border border-green-500/20"
+                style={{ background: "var(--bg-card)" }}
               >
                 <h3
-                  style={{
-                    fontFamily: "Space Grotesk,sans-serif",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                  className="flex items-center gap-2 font-bold text-[15px] mb-4"
+                  style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
                   <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[11px]"
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
                       background: "rgba(34,197,94,0.15)",
                       color: "#22C55E",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 11,
                     }}
                   >
                     ✓
                   </span>
                   Strengths
                 </h3>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
-                  {object?.strengths?.map(
-                    (
-                      s: { point?: string; reason?: string } | undefined,
-                      i: number,
-                    ) => (
-                      <div
-                        key={i}
-                        style={{
-                          paddingLeft: 12,
-                          borderLeft: "2px solid rgba(34,197,94,0.3)",
-                        }}
+                <div className="flex flex-col gap-3">
+                  {object?.strengths?.map((s, i) => (
+                    <div
+                      key={i}
+                      className="pl-3 border-l-2 border-green-500/30"
+                    >
+                      <p
+                        className="text-[13px] font-semibold mb-0.5"
+                        style={{ color: "var(--white)" }}
                       >
-                        <p
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            marginBottom: 2,
-                            color: "var(--white)",
-                          }}
-                        >
-                          {s?.point}
-                        </p>
-                        <p style={{ fontSize: 12, color: "var(--slate)" }}>
-                          {s?.reason}
-                        </p>
-                      </div>
-                    ),
-                  )}
+                        {s?.point}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--slate)" }}>
+                        {s?.reason}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
+              {/* Weaknesses */}
               <div
-                style={{
-                  background: "var(--bg-card)",
-                  borderRadius: 16,
-                  border: "1px solid rgba(239,68,68,0.2)",
-                  padding: 24,
-                }}
+                className="rounded-2xl p-6 border border-red-500/20"
+                style={{ background: "var(--bg-card)" }}
               >
                 <h3
-                  style={{
-                    fontFamily: "Space Grotesk,sans-serif",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                  className="flex items-center gap-2 font-bold text-[15px] mb-4"
+                  style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
                   <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[11px]"
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
                       background: "rgba(239,68,68,0.15)",
                       color: "#EF4444",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 11,
                     }}
                   >
                     ✗
                   </span>
                   Needs Work
                 </h3>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
-                  {object?.strengths?.map(
-                    (
-                      s: { point?: string; reason?: string } | undefined,
-                      i: number,
-                    ) => (
-                      <div
-                        key={i}
-                        style={{
-                          paddingLeft: 12,
-                          borderLeft: "2px solid rgba(34,197,94,0.3)",
-                        }}
+                <div className="flex flex-col gap-3">
+                  {object?.weaknesses?.map((w, i) => (
+                    <div key={i} className="pl-3 border-l-2 border-red-500/30">
+                      <p
+                        className="text-[13px] font-semibold mb-0.5"
+                        style={{ color: "var(--white)" }}
                       >
-                        <p
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            marginBottom: 2,
-                            color: "var(--white)",
-                          }}
-                        >
-                          {s?.point}
-                        </p>
-                        <p style={{ fontSize: 12, color: "var(--slate)" }}>
-                          {s?.reason}
-                        </p>
-                      </div>
-                    ),
-                  )}
+                        {w?.point}
+                      </p>
+                      <p className="text-xs" style={{ color: "#F59E0B" }}>
+                        Fix: {w?.fix}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -622,45 +477,31 @@ export default function AnalyzePage() {
             {/* ATS Issues */}
             {object?.atsScore?.issues && object.atsScore.issues.length > 0 && (
               <div
-                style={{
-                  background: "var(--bg-card)",
-                  borderRadius: 16,
-                  border: "1px solid rgba(245,158,11,0.2)",
-                  padding: 24,
-                }}
+                className="rounded-2xl p-6 border border-amber-500/20"
+                style={{ background: "var(--bg-card)" }}
               >
                 <h3
+                  className="font-bold text-[15px] mb-4"
                   style={{
                     fontFamily: "Space Grotesk,sans-serif",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 16,
                     color: "#F59E0B",
                   }}
                 >
                   ⚠ ATS Issues
                 </h3>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
-                  {object.atsScore.issues.map(
-                    (issue: string | undefined, i: number) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          gap: 10,
-                          fontSize: 13,
-                          color: "var(--slate)",
-                        }}
-                      >
-                        <span style={{ color: "#F59E0B", flexShrink: 0 }}>
-                          •
-                        </span>
-                        {issue}
-                      </div>
-                    ),
-                  )}
+                <div className="flex flex-col gap-2">
+                  {object.atsScore.issues.map((issue, i) => (
+                    <div
+                      key={i}
+                      className="flex gap-2.5 text-[13px]"
+                      style={{ color: "var(--slate)" }}
+                    >
+                      <span className="shrink-0" style={{ color: "#F59E0B" }}>
+                        •
+                      </span>
+                      {issue}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -668,80 +509,48 @@ export default function AnalyzePage() {
             {/* Missing Keywords */}
             {object?.missingKeywords && object.missingKeywords.length > 0 && (
               <div
-                style={{
-                  background: "var(--bg-card)",
-                  borderRadius: 16,
-                  border: "1px solid rgba(99,102,241,0.2)",
-                  padding: 24,
-                }}
+                className="rounded-2xl p-6 border border-indigo-500/20"
+                style={{ background: "var(--bg-card)" }}
               >
                 <h3
-                  style={{
-                    fontFamily: "Space Grotesk,sans-serif",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 16,
-                  }}
+                  className="font-bold text-[15px] mb-4"
+                  style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
                   Missing Keywords
                 </h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {object.missingKeywords.map(
-                    (kw: string | undefined, i: number) => (
-                      <span
-                        key={i}
-                        style={{
-                          fontSize: 12,
-                          padding: "5px 12px",
-                          borderRadius: 8,
-                          background: "rgba(99,102,241,0.12)",
-                          color: "#818CF8",
-                          border: "1px solid rgba(99,102,241,0.22)",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {kw}
-                      </span>
-                    ),
-                  )}
+                <div className="flex flex-wrap gap-2">
+                  {object.missingKeywords.map((kw, i) => (
+                    <span
+                      key={i}
+                      className="text-xs px-3 py-1 rounded-lg font-medium border"
+                      style={{
+                        background: "rgba(99,102,241,0.12)",
+                        color: "#818CF8",
+                        borderColor: "rgba(99,102,241,0.22)",
+                      }}
+                    >
+                      {kw}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* Optimize CTA */}
-            <div style={{ textAlign: "center", padding: "20px 0 40px" }}>
+            <div className="text-center py-6 pb-10">
               <button
                 onClick={handleOptimize}
                 disabled={optimizeLoading}
+                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl font-bold text-base text-white disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
-                  padding: "16px 40px",
-                  borderRadius: 14,
-                  border: "none",
                   background: "linear-gradient(135deg,#6366F1,#818CF8)",
-                  color: "white",
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: optimizeLoading ? "not-allowed" : "pointer",
-                  fontFamily: "Space Grotesk,sans-serif",
                   boxShadow: "0 4px 28px rgba(99,102,241,0.45)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
+                  fontFamily: "Space Grotesk,sans-serif",
                 }}
               >
                 {optimizeLoading ? (
                   <>
-                    <span
-                      style={{
-                        width: 16,
-                        height: 16,
-                        border: "2px solid rgba(255,255,255,0.3)",
-                        borderTopColor: "white",
-                        borderRadius: "50%",
-                        display: "inline-block",
-                        animation: "spin 0.7s linear infinite",
-                      }}
-                    />{" "}
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
                     Saving...
                   </>
                 ) : session ? (
@@ -751,9 +560,7 @@ export default function AnalyzePage() {
                 )}
               </button>
               {!session && (
-                <p
-                  style={{ fontSize: 12, color: "var(--slate)", marginTop: 10 }}
-                >
+                <p className="text-xs mt-2.5" style={{ color: "var(--slate)" }}>
                   Free account required — saves your analysis and unlocks AI
                   improvements
                 </p>
