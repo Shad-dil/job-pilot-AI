@@ -1,4 +1,3 @@
-import HeroDemo from "@/components/hero-demo/HeroDemo";
 import Navbar from "@/components/Navbar";
 import ResumeScanner from "@/components/ResumeScanner";
 import SignInButton from "@/components/SignInButton";
