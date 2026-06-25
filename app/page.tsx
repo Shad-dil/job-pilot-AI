@@ -1,3 +1,4 @@
+import HeroDemo from "@/components/hero-demo/HeroDemo";
 import Navbar from "@/components/Navbar";
 import ResumeScanner from "@/components/ResumeScanner";
 import SignInButton from "@/components/SignInButton";
@@ -20,7 +21,7 @@ const features = [
     icon: "✍️",
     title: "Rewrite Suggestions",
     desc: "Don't just know what's wrong — get AI-written alternatives for weak bullet points, ready to paste in.",
-    status: "coming",
+    status: "live",
   },
   {
     icon: "📨",
@@ -45,8 +46,8 @@ const features = [
 const steps = [
   {
     step: "01",
-    title: "Paste your resume",
-    desc: "Upload a PDF or paste the text directly. We handle the parsing.",
+    title: "Upload your resume",
+    desc: "Upload a PDF,We handle the parsing.",
   },
   {
     step: "02",
@@ -158,7 +159,7 @@ export default function Home() {
               className="text-lg leading-relaxed mb-10"
               style={{ color: "var(--slate)", maxWidth: 480 }}
             >
-              Paste your resume and the job description. JobPilot AI diagnoses
+              Upload your resume and the job description. JobPilot AI diagnoses
               every gap, weak point, and missed keyword — so you fix the right
               things before you apply.
             </p>
@@ -190,7 +191,7 @@ export default function Home() {
             <div className="mt-10 flex items-center gap-6">
               {[
                 ["✓ Free to start", "#22C55E"],
-                ["✓ No signup needed", "#22C55E"],
+                ["✓ AI Insights", "#22C55E"],
                 ["✓ Instant results", "#22C55E"],
               ].map(([text, color]) => (
                 <span
@@ -204,12 +205,14 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative mt-0">
             <ResumeScanner />
+            {/* <HeroDemo /> */}
           </div>
         </div>
       </section>
 
+      {/* <HeroDemo /> */}
       {/* Stats strip */}
       <div
         className="border-y border-white/5 py-10 px-6"
@@ -220,7 +223,7 @@ export default function Home() {
             ["94%", "of resumes have at least one critical gap"],
             ["3×", "more interviews after JobPilot optimization"],
             ["< 30s", "to get your full analysis"],
-            ["50k+", "resumes analyzed this month"],
+            ["2.5k+", "resumes analyzed this month"],
           ].map(([stat, label]) => (
             <div key={stat}>
               <div
@@ -297,7 +300,7 @@ export default function Home() {
       </section>
 
       {/* Analyze tool */}
-      <section id="analyze" className="py-24 px-6">
+      {/* <section id="analyze" className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <p
@@ -319,7 +322,7 @@ export default function Home() {
 
           <AnalyzerTool />
         </div>
-      </section>
+      </section> */}
 
       {/* Features */}
       <section id="features" className="py-24 px-6 border-t border-white/5">
@@ -423,8 +426,7 @@ export default function Home() {
                 Ready to get more interviews?
               </h2>
               <p className="mb-8" style={{ color: "var(--slate)" }}>
-                Stop guessing what recruiters want. Start with a free analysis —
-                no account required.
+                Stop guessing what recruiters want. Start with a free analysis
               </p>
               <a
                 href="#analyze"
@@ -491,7 +493,7 @@ function AnalyzerTool() {
         borderColor: "rgba(99,102,241,0.2)",
       }}
     >
-      <div
+      {/* <div
         className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x"
         style={{ borderColor: "rgba(99,102,241,0.15)" }}
       >
@@ -531,7 +533,7 @@ function AnalyzerTool() {
             }}
           />
         </div>
-      </div>
+      </div> */}
       <div
         className="p-6 border-t"
         style={{ borderColor: "rgba(99,102,241,0.15)" }}

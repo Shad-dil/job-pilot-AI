@@ -1,35 +1,88 @@
 // app/api/analyze/route.ts
 import { openai } from "@ai-sdk/openai";
-import { streamObject } from "ai";
-import { resumeSchema } from "./schema";
+import { generateObject, streamObject } from "ai";
+import { resumeSchema, structuredJDSchema } from "./schema";
 
 export async function POST(req: Request) {
-  const { resumeText, jobDescription, targetType, role, level } =
-    await req.json();
+  const {
+    structuredResume,
+    jobDescription,
+    resumeText,
+    targetType,
+    role,
+    level,
+  } = await req.json();
 
-  const targetContext =
-    targetType === "jd" && jobDescription
-      ? `The candidate is applying for this specific job:\n${jobDescription}`
-      : role
-        ? `The candidate is targeting a ${level ?? "Mid"} level ${role} role. Evaluate against industry standards.`
-        : `Do a general resume analysis focusing on clarity, impact, and professionalism.`;
+  let structuredJD = null;
+  if (jobDescription?.trim()) {
+    try {
+      const { object } = await generateObject({
+        model: openai("gpt-4.1-nano"),
+        schema: structuredJDSchema,
+        prompt: `Extract structured info from this job description.
+Return empty string or empty array if field not found.
+
+JOB DESCRIPTION:
+${jobDescription.slice(0, 3000)}`,
+      });
+      structuredJD = object;
+    } catch (e) {
+      console.error("JD parse failed:", e);
+    }
+  }
+  const candidateContext = structuredResume
+    ? `
+CANDIDATE PROFILE:
+Name: ${structuredResume.name}
+Skills: ${structuredResume.skills
+        ?.map((s: any) => `${s.category}: ${s.items.join(", ")}`)
+        .join(" | ")}
+Experience: ${structuredResume.experience
+        ?.map(
+          (e: any) =>
+            `${e.title} at ${e.company} (${e.duration}): ${e.bullets?.join(". ")}`,
+        )
+        .join(" || ")}
+Projects: ${structuredResume.projects
+        ?.map((p: any) => `${p.name}: ${p.bullets?.join(". ")}`)
+        .join(" || ")}
+`
+    : `RESUME:\n${resumeText}`;
+
+  const jdContext = structuredJD
+    ? `
+JOB REQUIREMENTS:
+Role: ${structuredJD.title} at ${structuredJD.company}
+Required skills: ${structuredJD.requiredSkills.join(", ")}
+Preferred skills: ${structuredJD.preferredSkills.join(", ")}
+Experience: ${structuredJD.requiredExp}
+Seniority: ${structuredJD.seniorityLevel}
+Responsibilities: ${structuredJD.responsibilities.slice(0, 5).join(" | ")}
+Keywords: ${structuredJD.keywords.join(", ")}
+`
+    : jobDescription
+      ? `JOB DESCRIPTION:\n${jobDescription.slice(0, 2000)}`
+      : "Do a general resume analysis.";
 
   try {
     const result = streamObject({
-      model: openai("gpt-4.1-nano"),
+      model: openai("gpt-5-mini"),
       schema: resumeSchema,
-      prompt: `You are an expert technical recruiter and resume analyst.
+      prompt: `You are a senior technical recruiter.
 
-${targetContext}
+${candidateContext}
 
-Analyze the resume below. Be specific — reference actual content from the resume, not generic advice.
+${jdContext}
 
-For bulletImprovements: find weak bullets that lack metrics or impact. Rewrite them to be stronger.
-For atsScore: evaluate if the resume would pass automated screening systems.
-For missingKeywords: only include keywords relevant to the target role.
-
-RESUME:
-${resumeText}`,
+Instructions:
+- matchScore: strict % based on actual skills match (0-100)
+- interviewChance: realistic % probability of getting interview
+- strengths: ONLY direct matches between candidate and JD requirements
+- weaknesses: ONLY gaps between JD requirements and candidate profile  
+- missingKeywords: exact keywords from JD not found in candidate profile
+- atsScore: ATS compatibility for this specific role
+- topRecommendation: single most impactful change
+- Be specific — use actual skill names, company names, job titles`,
     });
 
     return result.toTextStreamResponse();

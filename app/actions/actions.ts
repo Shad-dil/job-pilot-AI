@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { structuredResumeSchema } from "../api/parse-resume/schema";
+import { StructuredResume } from "../types/resume";
 
 export async function registerUser(formData: {
   name: string;
@@ -92,6 +93,7 @@ export async function saveAnalysis(data: {
   targetText?: string;
   score: number;
   resultJson: object;
+  structuredResume?: any; // ← already in your type
 }) {
   const session = await auth();
   if (!session?.user) throw new Error("Not Authenticated");
@@ -101,15 +103,18 @@ export async function saveAnalysis(data: {
 
   const resume = await prisma.resume.create({
     data: {
-      userId, // ← use userId variable, not session!.user.id
+      userId,
       filename: data.filename,
       rawText: data.rawText,
+      structuredJson: data.structuredResume ?? undefined, // ← save directly
     },
   });
-  parseAndSaveStructuredResume(data.rawText, resume.id).catch(console.error);
+
+  // Only call AI parse if structuredResume wasn't provided
+
   const analysis = await prisma.analysis.create({
     data: {
-      userId, // ← use userId variable, not session?.user?.id
+      userId,
       resumeId: resume.id,
       role: data.role,
       level: data.level,
@@ -139,33 +144,6 @@ export async function updateResumeText(resumeId: string, rawText: string) {
 
 // Parsing Resume in structured JSON
 
-export async function parseAndSaveStructuredResume(
-  rawText: string,
-  resumeId: string,
-) {
-  try {
-    console.log("Calling parse resume");
-    const { object } = await generateObject({
-      model: openai("gpt-4.1-nano"),
-      schema: structuredResumeSchema,
-      prompt: `Extract all information from this resume into structured JSON.
-Be precise — extract exact text, don't paraphrase bullets.
-For skills, group them by category if possible.
-
-RESUME:
-${rawText.slice(0, 4000)}`,
-    });
-
-    await prisma.resume.update({
-      where: { id: resumeId },
-      data: { structuredJson: object },
-    });
-    return object;
-  } catch (e) {
-    console.log(e instanceof Error ? e.message : "Something went wrong");
-  }
-}
-
 // ── Save guest analysis (not logged in) ──────────────────────
 export async function saveGuestAnalysis(data: {
   filename: string;
@@ -173,6 +151,7 @@ export async function saveGuestAnalysis(data: {
   score: number;
   resultJson: object;
   targetText?: string;
+  structuredResume?: any;
 }) {
   const tempToken = crypto.randomUUID();
 
@@ -195,6 +174,7 @@ export async function saveGuestAnalysis(data: {
       resultJson: data.resultJson,
       guestFilename: data.filename,
       guestRawText: data.rawText, // ← make sure this isn't empty
+      guestStructuredJson: data.structuredResume ?? undefined,
     },
   });
 
@@ -216,13 +196,6 @@ export async function claimGuestAnalysis(tempToken: string) {
     where: { tempToken },
   });
 
-  console.log("Found guest analysis:", {
-    id: guestAnalysis?.id,
-    hasRawText: !!guestAnalysis?.guestRawText,
-    rawTextLength: guestAnalysis?.guestRawText?.length,
-    filename: guestAnalysis?.guestFilename,
-  });
-
   if (!guestAnalysis) {
     console.log("No guest analysis found for token:", tempToken);
     return null;
@@ -234,24 +207,13 @@ export async function claimGuestAnalysis(tempToken: string) {
       userId,
       filename: guestAnalysis.guestFilename ?? "resume.pdf",
       rawText: guestAnalysis.guestRawText ?? "",
+      structuredJson: guestAnalysis.guestStructuredJson ?? undefined,
     },
   });
 
   console.log("Resume created:", resume.id);
 
   // Parse structured resume — with explicit error handling
-  if (guestAnalysis.guestRawText && guestAnalysis.guestRawText.length > 0) {
-    console.log("Starting parseAndSaveStructuredResume for:", resume.id);
-    parseAndSaveStructuredResume(guestAnalysis.guestRawText, resume.id)
-      .then(() =>
-        console.log("✅ Structured JSON saved for claimed resume:", resume.id),
-      )
-      .catch((e) =>
-        console.error("❌ Parse failed for claimed resume:", e.message),
-      );
-  } else {
-    console.log("⚠ No rawText to parse for resume:", resume.id);
-  }
 
   // Update analysis
   const updated = await prisma.analysis.update({
@@ -302,4 +264,24 @@ export async function getStructuredResume(resumeId: string) {
   });
 
   return resume?.structuredJson ?? null;
+}
+
+export async function parseResume(rawText: string) {
+  try {
+    console.log("Calling parse resume");
+    const { object } = await generateObject({
+      model: openai("gpt-4.1-nano"),
+      schema: structuredResumeSchema,
+      prompt: `Extract all information from this resume into structured JSON.
+Be precise — extract exact text, don't paraphrase bullets.
+For skills, group them by category if possible.
+
+RESUME:
+${rawText.slice(0, 6000)}`,
+    });
+
+    return object;
+  } catch (e) {
+    console.log(e instanceof Error ? e.message : "error is parsing Resume");
+  }
 }

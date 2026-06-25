@@ -38,3 +38,4 @@ export const structuredResumeSchema = z.object({
     }),
   ),
 });
+export type StructuredResume = z.infer<typeof structuredResumeSchema>;

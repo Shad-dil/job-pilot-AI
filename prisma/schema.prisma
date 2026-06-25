@@ -81,6 +81,7 @@ model Analysis {
   // store these directly so we can claim later without losing data
   guestFilename String?  // ← filename for guest
   guestRawText  String?  // ← rawText for guest
+  guestStructuredJson  Json?
   createdAt  DateTime @default(now())
   resume     Resume?  @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)

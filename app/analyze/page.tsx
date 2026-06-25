@@ -4,9 +4,15 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { resumeSchema } from "@/app/api/analyze/schema";
-import { parsePdf, saveAnalysis, saveGuestAnalysis } from "../actions/actions";
+import {
+  parsePdf,
+  parseResume,
+  saveAnalysis,
+  saveGuestAnalysis,
+} from "../actions/actions";
 import { z } from "zod";
 import ResumeScanner from "@/components/ResumeScanner";
+import { StructuredResume } from "../types/resume";
 
 type ResumeAnalysis = z.infer<typeof resumeSchema>;
 
@@ -17,6 +23,9 @@ export default function AnalyzePage() {
   const [parseError, setParseError] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [optimizeLoading, setOptimizeLoading] = useState(false);
+  const [structuredResume, setStructuredResume] = useState<any>(null);
+  const [parsedForFile, setParsedForFile] = useState<string>("");
+  const [isParsing, setIsParsing] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +35,9 @@ export default function AnalyzePage() {
     schema: resumeSchema,
     onFinish: ({ object }) => {
       // Stream done → show results
-      if (object?.matchScore) setShowResults(true);
+      if (object?.matchScore !== undefined && object?.matchScore !== null) {
+        setShowResults(true);
+      }
     },
   });
 
@@ -45,11 +56,30 @@ export default function AnalyzePage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resume) return;
-    setShowResults(false); // reset on re-analyze
+    setShowResults(false);
+    setIsParsing(true);
+
+    let parsedResume = null;
+
+    // Only re-parse if file changed
+    if (parsedForFile === fileName && structuredResume) {
+      console.log("caching the Resume");
+      parsedResume = structuredResume; // ← reuse cached
+      setIsParsing(false);
+    } else {
+      parsedResume = await parseResume(resume).catch(() => null);
+      if (parsedResume) {
+        setStructuredResume(parsedResume);
+        setParsedForFile(fileName); // ← remember which file was parsed
+      }
+      setIsParsing(false);
+    }
+
     submit({
+      structuredResume: parsedResume,
       resumeText: resume.slice(0, 3000),
       jobDescription: jd,
       targetType: jd ? "jd" : "general",
@@ -80,6 +110,7 @@ export default function AnalyzePage() {
           score: object.matchScore as number,
           resultJson: object,
           targetText: jd || undefined,
+          structuredResume: structuredResume ?? undefined,
         });
         const callbackUrl = encodeURIComponent(`/dashboard?claim=${token}`);
         router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
@@ -100,6 +131,7 @@ export default function AnalyzePage() {
         targetText: jd || undefined,
         score: object.matchScore as number,
         resultJson: object,
+        structuredResume: structuredResume ?? undefined,
       });
 
       // Go directly to the analysis editor, not just dashboard
@@ -117,7 +149,7 @@ export default function AnalyzePage() {
     >
       <div className="max-w-4xl mx-auto px-4 py-10 relative">
         {/* Loading overlay */}
-        {isLoading && (
+        {(isParsing || isLoading) && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[rgba(3,7,18,0.75)] backdrop-blur-sm rounded-2xl">
             <div className="w-full max-w-xl">
               <ResumeScanner />
@@ -127,7 +159,7 @@ export default function AnalyzePage() {
                 Analyzing your resume...
               </p>
               <p className="mt-2 text-sm text-slate-400">
-                This usually takes 10–20 seconds.
+                This usually takes 20–30 seconds.
               </p>
             </div>
           </div>
@@ -350,32 +382,239 @@ export default function AnalyzePage() {
               </div>
             </div>
 
-            {/* Score cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ScoreCard
-                label="Match Score"
-                score={object?.matchScore}
-                scoreColor={scoreColor}
-                description={object?.summary}
-              />
-              <ScoreCard
-                label="ATS Score"
-                score={object?.atsScore?.overall}
-                scoreColor={scoreColor}
-                sub={[
+            {/* ── Match Score + Interview Chance ── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Match Score */}
+              <div
+                className="md:col-span-1 rounded-2xl p-6 border flex flex-col items-center justify-center gap-2"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor: `${scoreColor(object?.matchScore ?? 0)}30`,
+                }}
+              >
+                <div className="relative w-24 h-24">
+                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke={scoreColor(object?.matchScore ?? 0)}
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(object?.matchScore ?? 0) * 2.51} 251`}
+                      style={{
+                        transition: "stroke-dasharray 1s ease",
+                        filter: `drop-shadow(0 0 6px ${scoreColor(object?.matchScore ?? 0)})`,
+                      }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span
+                      className="text-xl font-bold"
+                      style={{
+                        color: scoreColor(object?.matchScore ?? 0),
+                        fontFamily: "Space Grotesk,sans-serif",
+                      }}
+                    >
+                      {object?.matchScore ?? "—"}%
+                    </span>
+                  </div>
+                </div>
+                <p
+                  className="text-xs font-bold uppercase tracking-widest"
+                  style={{ color: "var(--slate)" }}
+                >
+                  Match Score
+                </p>
+                {object?.summary && (
+                  <p
+                    className="text-xs text-center mt-1 leading-relaxed"
+                    style={{ color: "var(--slate)" }}
+                  >
+                    {object.summary}
+                  </p>
+                )}
+              </div>
+
+              {/* Interview Probability */}
+              <div
+                className="md:col-span-1 rounded-2xl p-6 border flex flex-col items-center justify-center gap-2"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor:
+                    object?.interviewProbability?.level === "High"
+                      ? "rgba(34,197,94,0.3)"
+                      : object?.interviewProbability?.level === "Medium"
+                        ? "rgba(245,158,11,0.3)"
+                        : "rgba(239,68,68,0.3)",
+                }}
+              >
+                <div className="relative w-24 h-24">
+                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke={
+                        object?.interviewProbability?.level === "High"
+                          ? "#22C55E"
+                          : object?.interviewProbability?.level === "Medium"
+                            ? "#F59E0B"
+                            : "#EF4444"
+                      }
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(object?.interviewProbability?.score ?? 0) * 2.51} 251`}
+                      style={{ transition: "stroke-dasharray 1s ease" }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span
+                      className="text-xl font-bold"
+                      style={{
+                        color:
+                          object?.interviewProbability?.level === "High"
+                            ? "#22C55E"
+                            : object?.interviewProbability?.level === "Medium"
+                              ? "#F59E0B"
+                              : "#EF4444",
+                        fontFamily: "Space Grotesk,sans-serif",
+                      }}
+                    >
+                      {object?.interviewProbability?.score ?? "—"}%
+                    </span>
+                  </div>
+                </div>
+                <p
+                  className="text-xs font-bold uppercase tracking-widest"
+                  style={{ color: "var(--slate)" }}
+                >
+                  Interview Chance
+                </p>
+                {object?.interviewProbability?.level && (
+                  <span
+                    className="text-xs px-3 py-1 rounded-full font-semibold"
+                    style={{
+                      background:
+                        object.interviewProbability.level === "High"
+                          ? "rgba(34,197,94,0.12)"
+                          : object.interviewProbability.level === "Medium"
+                            ? "rgba(245,158,11,0.12)"
+                            : "rgba(239,68,68,0.12)",
+                      color:
+                        object.interviewProbability.level === "High"
+                          ? "#22C55E"
+                          : object.interviewProbability.level === "Medium"
+                            ? "#F59E0B"
+                            : "#EF4444",
+                    }}
+                  >
+                    {object.interviewProbability.level} Chance
+                  </span>
+                )}
+                {object?.interviewProbability?.reason && (
+                  <p
+                    className="text-xs text-center mt-1 leading-relaxed"
+                    style={{ color: "var(--slate)" }}
+                  >
+                    {object.interviewProbability.reason}
+                  </p>
+                )}
+              </div>
+
+              {/* ATS Score */}
+              <div
+                className="md:col-span-1 rounded-2xl p-6 border flex flex-col gap-3"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor: `${scoreColor(object?.atsScore?.overall ?? 0)}30`,
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: "var(--slate)" }}
+                  >
+                    ATS Score
+                  </p>
+                  <span
+                    className="text-lg font-bold"
+                    style={{
+                      color: scoreColor(object?.atsScore?.overall ?? 0),
+                      fontFamily: "Space Grotesk,sans-serif",
+                    }}
+                  >
+                    {object?.atsScore?.overall ?? "—"}%
+                  </span>
+                </div>
+                {[
                   {
                     label: "Keyword Match",
                     val: object?.atsScore?.keywordMatch,
                   },
                   { label: "Format Score", val: object?.atsScore?.formatScore },
-                ]}
-              />
+                  {
+                    label: "Experience Match",
+                    val: object?.atsScore?.experienceMatch,
+                  },
+                ].map(
+                  ({ label, val }) =>
+                    val !== undefined && (
+                      <div key={label}>
+                        <div className="flex justify-between mb-1">
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--slate)" }}
+                          >
+                            {label}
+                          </span>
+                          <span
+                            className="text-xs font-semibold"
+                            style={{ color: scoreColor(val) }}
+                          >
+                            {val}%
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.08)" }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-all duration-1000"
+                            style={{
+                              width: `${val}%`,
+                              background: scoreColor(val),
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ),
+                )}
+              </div>
             </div>
 
-            {/* Top recommendation */}
+            {/* ── Top Recommendation ── */}
             {object?.topRecommendation && (
               <div
-                className="px-4 py-3 rounded-xl border-l-2"
+                className="px-4 py-3 rounded-xl"
                 style={{
                   background: "rgba(99,102,241,0.1)",
                   border: "1px solid rgba(99,102,241,0.25)",
@@ -394,9 +633,69 @@ export default function AnalyzePage() {
               </div>
             )}
 
-            {/* Strengths + Weaknesses */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Strengths */}
+            {/* ── Recruiter Feedback ── */}
+            {object?.recruiterFeedback && (
+              <div
+                className="rounded-2xl p-6 border"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor:
+                    object.recruiterFeedback.verdict === "Strong Match"
+                      ? "rgba(34,197,94,0.25)"
+                      : object.recruiterFeedback.verdict === "Moderate Match"
+                        ? "rgba(245,158,11,0.25)"
+                        : "rgba(239,68,68,0.25)",
+                }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">
+                    {object.recruiterFeedback.verdict === "Strong Match"
+                      ? "🎯"
+                      : object.recruiterFeedback.verdict === "Moderate Match"
+                        ? "🤔"
+                        : "⚠️"}
+                  </span>
+                  <div>
+                    <p
+                      className="text-xs font-bold uppercase tracking-widest mb-0.5"
+                      style={{ color: "var(--slate)" }}
+                    >
+                      Recruiter Verdict
+                    </p>
+                    <span
+                      className="text-sm font-bold px-3 py-1 rounded-full"
+                      style={{
+                        background:
+                          object.recruiterFeedback.verdict === "Strong Match"
+                            ? "rgba(34,197,94,0.12)"
+                            : object.recruiterFeedback.verdict ===
+                                "Moderate Match"
+                              ? "rgba(245,158,11,0.12)"
+                              : "rgba(239,68,68,0.12)",
+                        color:
+                          object.recruiterFeedback.verdict === "Strong Match"
+                            ? "#22C55E"
+                            : object.recruiterFeedback.verdict ===
+                                "Moderate Match"
+                              ? "#F59E0B"
+                              : "#EF4444",
+                      }}
+                    >
+                      {object.recruiterFeedback.verdict}
+                    </span>
+                  </div>
+                </div>
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ color: "var(--slate)" }}
+                >
+                  {object.recruiterFeedback.feedback}
+                </p>
+              </div>
+            )}
+
+            {/* ── Strengths ── */}
+            {object?.strengths && object.strengths.length > 0 && (
               <div
                 className="rounded-2xl p-6 border border-green-500/20"
                 style={{ background: "var(--bg-card)" }}
@@ -417,7 +716,7 @@ export default function AnalyzePage() {
                   Strengths
                 </h3>
                 <div className="flex flex-col gap-3">
-                  {object?.strengths?.map((s, i) => (
+                  {object.strengths.map((s, i) => (
                     <div
                       key={i}
                       className="pl-3 border-l-2 border-green-500/30"
@@ -435,8 +734,12 @@ export default function AnalyzePage() {
                   ))}
                 </div>
               </div>
+            )}
 
-              {/* Weaknesses */}
+            {/* ── Needs Work (hardGaps + skillGaps + evidenceGaps) ── */}
+            {object?.hardGaps?.length ||
+            object?.skillGaps?.length ||
+            object?.evidenceGaps?.length ? (
               <div
                 className="rounded-2xl p-6 border border-red-500/20"
                 style={{ background: "var(--bg-card)" }}
@@ -456,64 +759,288 @@ export default function AnalyzePage() {
                   </span>
                   Needs Work
                 </h3>
-                <div className="flex flex-col gap-3">
-                  {object?.weaknesses?.map((w, i) => (
-                    <div key={i} className="pl-3 border-l-2 border-red-500/30">
+
+                <div className="flex flex-col gap-4">
+                  {/* Hard Gaps */}
+                  {object?.hardGaps && object.hardGaps.length > 0 && (
+                    <div>
                       <p
-                        className="text-[13px] font-semibold mb-0.5"
-                        style={{ color: "var(--white)" }}
+                        className="text-xs font-bold uppercase tracking-widest mb-2"
+                        style={{ color: "#EF4444" }}
                       >
-                        {w?.point}
+                        Critical Gaps
                       </p>
-                      <p className="text-xs" style={{ color: "#F59E0B" }}>
-                        Fix: {w?.fix}
-                      </p>
+                      <div className="flex flex-col gap-3">
+                        {object.hardGaps.map((g, i) => (
+                          <div
+                            key={i}
+                            className="pl-3 border-l-2 border-red-500/30"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <p
+                                className="text-[13px] font-semibold"
+                                style={{ color: "var(--white)" }}
+                              >
+                                {g?.title}
+                              </p>
+                              {g?.impact && (
+                                <span
+                                  className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background:
+                                      g.impact === "High"
+                                        ? "rgba(239,68,68,0.12)"
+                                        : g.impact === "Medium"
+                                          ? "rgba(245,158,11,0.12)"
+                                          : "rgba(99,102,241,0.12)",
+                                    color:
+                                      g.impact === "High"
+                                        ? "#EF4444"
+                                        : g.impact === "Medium"
+                                          ? "#F59E0B"
+                                          : "#818CF8",
+                                  }}
+                                >
+                                  {g.impact} Impact
+                                </span>
+                              )}
+                            </div>
+                            <p
+                              className="text-xs mb-1"
+                              style={{ color: "var(--slate)" }}
+                            >
+                              {g?.reason}
+                            </p>
+                            {g?.recommendation && (
+                              <p
+                                className="text-xs"
+                                style={{ color: "#F59E0B" }}
+                              >
+                                Fix: {g.recommendation}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Skill Gaps */}
+                  {object?.skillGaps && object.skillGaps.length > 0 && (
+                    <div>
+                      <p
+                        className="text-xs font-bold uppercase tracking-widest mb-2"
+                        style={{ color: "#F59E0B" }}
+                      >
+                        Skill Gaps
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {object.skillGaps.map((s, i) => (
+                          <div
+                            key={i}
+                            className="pl-3 border-l-2 border-amber-500/30 flex items-start justify-between gap-3"
+                          >
+                            <div>
+                              <p
+                                className="text-[13px] font-semibold mb-0.5"
+                                style={{ color: "var(--white)" }}
+                              >
+                                {s?.skill}
+                              </p>
+                              <p
+                                className="text-xs"
+                                style={{ color: "var(--slate)" }}
+                              >
+                                {s?.fix}
+                              </p>
+                            </div>
+                            {s?.importance && (
+                              <span
+                                className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
+                                style={{
+                                  background:
+                                    s.importance === "Required"
+                                      ? "rgba(239,68,68,0.12)"
+                                      : "rgba(99,102,241,0.12)",
+                                  color:
+                                    s.importance === "Required"
+                                      ? "#EF4444"
+                                      : "#818CF8",
+                                }}
+                              >
+                                {s.importance}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Evidence Gaps */}
+                  {object?.evidenceGaps && object.evidenceGaps.length > 0 && (
+                    <div>
+                      <p
+                        className="text-xs font-bold uppercase tracking-widest mb-2"
+                        style={{ color: "#818CF8" }}
+                      >
+                        Missing Evidence
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {object.evidenceGaps.map((e, i) => (
+                          <div
+                            key={i}
+                            className="pl-3 border-l-2 border-indigo-500/30"
+                          >
+                            <p
+                              className="text-[13px] font-semibold mb-0.5"
+                              style={{ color: "var(--white)" }}
+                            >
+                              {e?.skill}
+                            </p>
+                            <p
+                              className="text-xs mb-0.5"
+                              style={{ color: "var(--slate)" }}
+                            >
+                              {e?.reason}
+                            </p>
+                            <p className="text-xs" style={{ color: "#818CF8" }}>
+                              → {e?.suggestion}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            ) : null}
 
-            {/* ATS Issues */}
-            {object?.atsScore?.issues && object.atsScore.issues.length > 0 && (
+            {/* ── Required + Preferred Skills Match ── */}
+            {object?.requiredSkills?.length ||
+            object?.preferredSkills?.length ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Required Skills */}
+                {object?.requiredSkills && object.requiredSkills.length > 0 && (
+                  <div
+                    className="rounded-2xl p-6 border border-white/7"
+                    style={{ background: "var(--bg-card)" }}
+                  >
+                    <h3
+                      className="font-bold text-[14px] mb-3"
+                      style={{ fontFamily: "Space Grotesk,sans-serif" }}
+                    >
+                      Required Skills
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {object.requiredSkills.map((s, i) => (
+                        <span
+                          key={i}
+                          className="text-xs px-2.5 py-1 rounded-lg font-medium border"
+                          style={{
+                            background: s?.matched
+                              ? "rgba(34,197,94,0.1)"
+                              : "rgba(239,68,68,0.1)",
+                            color: s?.matched ? "#22C55E" : "#EF4444",
+                            borderColor: s?.matched
+                              ? "rgba(34,197,94,0.25)"
+                              : "rgba(239,68,68,0.25)",
+                          }}
+                        >
+                          {s?.matched ? "✓" : "✗"} {s?.skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preferred Skills */}
+                {object?.preferredSkills &&
+                  object.preferredSkills.length > 0 && (
+                    <div
+                      className="rounded-2xl p-6 border border-white/7"
+                      style={{ background: "var(--bg-card)" }}
+                    >
+                      <h3
+                        className="font-bold text-[14px] mb-3"
+                        style={{ fontFamily: "Space Grotesk,sans-serif" }}
+                      >
+                        Preferred Skills
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {object.preferredSkills.map((s, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2.5 py-1 rounded-lg font-medium border"
+                            style={{
+                              background: s?.matched
+                                ? "rgba(99,102,241,0.1)"
+                                : "rgba(255,255,255,0.04)",
+                              color: s?.matched ? "#818CF8" : "var(--slate)",
+                              borderColor: s?.matched
+                                ? "rgba(99,102,241,0.25)"
+                                : "rgba(255,255,255,0.08)",
+                            }}
+                          >
+                            {s?.matched ? "✓" : "○"} {s?.skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            ) : null}
+
+            {/* ── How To Reach 90% ── */}
+            {object?.scoreImprovement && object.scoreImprovement.length > 0 && (
               <div
-                className="rounded-2xl p-6 border border-amber-500/20"
+                className="rounded-2xl p-6 border border-indigo-500/20"
                 style={{ background: "var(--bg-card)" }}
               >
                 <h3
-                  className="font-bold text-[15px] mb-4"
-                  style={{
-                    fontFamily: "Space Grotesk,sans-serif",
-                    color: "#F59E0B",
-                  }}
+                  className="font-bold text-[15px] mb-4 flex items-center gap-2"
+                  style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
-                  ⚠ ATS Issues
+                  <span>🚀</span> How To Reach 90%
                 </h3>
-                <div className="flex flex-col gap-2">
-                  {object.atsScore.issues.map((issue, i) => (
+                <div className="flex flex-col gap-3">
+                  {object.scoreImprovement.map((item, i) => (
                     <div
                       key={i}
-                      className="flex gap-2.5 text-[13px]"
-                      style={{ color: "var(--slate)" }}
+                      className="flex items-center justify-between gap-4 p-3 rounded-xl"
+                      style={{
+                        background: "rgba(99,102,241,0.06)",
+                        border: "1px solid rgba(99,102,241,0.12)",
+                      }}
                     >
-                      <span className="shrink-0" style={{ color: "#F59E0B" }}>
-                        •
-                      </span>
-                      {issue}
+                      <p className="text-sm" style={{ color: "var(--white)" }}>
+                        {item?.action}
+                      </p>
+                      {item?.scoreIncrease !== undefined && (
+                        <span
+                          className="text-sm font-bold shrink-0 px-2.5 py-1 rounded-lg"
+                          style={{
+                            background: "rgba(34,197,94,0.12)",
+                            color: "#22C55E",
+                          }}
+                        >
+                          +{item.scoreIncrease}%
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Missing Keywords */}
+            {/* ── Missing Keywords ── */}
             {object?.missingKeywords && object.missingKeywords.length > 0 && (
               <div
                 className="rounded-2xl p-6 border border-indigo-500/20"
                 style={{ background: "var(--bg-card)" }}
               >
                 <h3
-                  className="font-bold text-[15px] mb-4"
+                  className="font-bold text-[15px] mb-3"
                   style={{ fontFamily: "Space Grotesk,sans-serif" }}
                 >
                   Missing Keywords
@@ -536,7 +1063,7 @@ export default function AnalyzePage() {
               </div>
             )}
 
-            {/* Optimize CTA */}
+            {/* ── Optimize CTA ── */}
             <div className="text-center py-6 pb-10">
               <button
                 onClick={handleOptimize}
@@ -632,6 +1159,7 @@ function ScoreCard({
             {score !== undefined ? `${s}%` : "—"}
           </span>
         </div>
+
         <p
           style={{
             fontSize: 12,
