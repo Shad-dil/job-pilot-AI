@@ -15,6 +15,13 @@ export async function POST(req: Request) {
 
   let structuredJD = null;
   if (jobDescription?.trim()) {
+    const cleanedJD = jobDescription
+      .replace(/\*/g, "") // remove * bullets
+      .replace(/\n{3,}/g, "\n\n") // collapse multiple newlines
+      .replace(/\s{2,}/g, " ") // collapse multiple spaces
+      .trim()
+      .slice(0, 2500);
+    console.log("parsing JD");
     try {
       const { object } = await generateObject({
         model: openai("gpt-4.1-nano"),
@@ -23,11 +30,12 @@ export async function POST(req: Request) {
 Return empty string or empty array if field not found.
 
 JOB DESCRIPTION:
-${jobDescription.slice(0, 3000)}`,
+${cleanedJD}`,
       });
       structuredJD = object;
+      console.log("✅ JD parsed:", structuredJD?.title);
     } catch (e) {
-      console.error("JD parse failed:", e);
+      console.error("❌ JD parse failed:", e instanceof Error ? e.message : e);
     }
   }
   const candidateContext = structuredResume
@@ -66,7 +74,7 @@ Keywords: ${structuredJD.keywords.join(", ")}
 
   try {
     const result = streamObject({
-      model: openai("gpt-5-mini"),
+      model: openai("gpt-4.1"),
       schema: resumeSchema,
       prompt: `You are a senior technical recruiter.
 
