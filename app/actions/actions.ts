@@ -129,15 +129,33 @@ export async function saveAnalysis(data: {
   return { resumeId: resume.id, analysisId: analysis.id };
 }
 
-export async function updateResumeText(resumeId: string, rawText: string) {
+export async function updateResumeText(
+  resumeId: string,
+  analysisId: string,
+  rawText: string,
+  score: number,
+  structuredJson: StructuredResume,
+) {
   const session = await auth();
   if (!session?.user) throw new Error("Not authenticated");
+
   await prisma.resume.update({
     where: {
       id: resumeId,
     },
     data: {
       rawText,
+      structuredJson,
+      analyses: {
+        update: {
+          where: {
+            id: analysisId,
+          },
+          data: {
+            score,
+          },
+        },
+      },
     },
   });
 }

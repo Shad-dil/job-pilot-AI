@@ -82,17 +82,28 @@ export const resumeSchema = z.object({
   topRecommendation: z.string(),
 });
 
+// app/api/analyze/schema.ts
 export const improvementSchema = z.object({
-  bulletImprovements: z
-    .array(
-      z.object({
-        original: z.string().describe("Exact original bullet from resume"),
-        improved: z.string().describe("Rewritten with metrics and impact"),
-        reason: z.string().describe("Why this version is stronger"),
-        section: z.string().describe("Which section this bullet is from"),
-      }),
-    )
-    .describe("5-8 weak bullets with AI rewrites"),
+  bulletImprovements: z.array(
+    z.object({
+      original: z.string(),
+      improved: z.string(),
+      reason: z.string(),
+      section: z.string(),
+      addedKeywords: z
+        .array(z.string())
+        .describe("keywords naturally added in this improvement"),
+    }),
+  ),
+
+  summaryRewrite: z
+    .object({
+      original: z.string(),
+      improved: z.string(),
+      reason: z.string(),
+    })
+    .describe("Complete summary rewrite tailored to the JD"),
+
   sectionScores: z.object({
     summary: z.object({ score: z.number(), feedback: z.string() }),
     experience: z.object({ score: z.number(), feedback: z.string() }),

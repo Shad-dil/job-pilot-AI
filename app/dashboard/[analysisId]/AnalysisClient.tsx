@@ -30,7 +30,9 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumeRef = useRef(null);
   const structured = analysis.resume.structuredJson as StructuredResume | null;
-  const [liveStructured, setLiveStructured] = useState(structured);
+  const [liveStructured, setLiveStructured] = useState<StructuredResume | null>(
+    structured,
+  );
   const [mobileTab, setMobileTab] = useState<"resume" | "suggestions">(
     "suggestions",
   );
@@ -78,53 +80,80 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
   const scoreColor = (s: number) =>
     s >= 75 ? "#22C55E" : s >= 50 ? "#F59E0B" : "#EF4444";
 
-  // Apply a bullet improvement
-  const applyBullet = async (
-    original: string,
-    improved: string,
-    index: number,
-  ) => {
-    setResumeText((prev) => prev.replace(original, improved));
+  const applyBullet = (original: string, improved: string, index: number) => {
+    if (!liveStructured) return;
 
+    const normalize = (s: string) => s.replace(/^[•\-▪*]\s*/, "").trim();
+    const matches = (b: string) =>
+      normalize(b) === normalize(original) ||
+      b.includes(original.slice(0, 40)) ||
+      original.includes(b.slice(0, 40));
+
+    // Build next resume text
+    const nextResumeText = resumeText.includes(original)
+      ? resumeText.replace(original, improved)
+      : resumeText;
+
+    setResumeText(nextResumeText);
+
+    // Use functional form to always get latest state
     setLiveStructured((prev) => {
       if (!prev) return prev;
-      return {
+
+      const next: StructuredResume = {
         ...prev,
+        // Summary — use includes match
+        summary: matches(prev.summary ?? "") ? improved : prev.summary,
+
+        // Experience
         experience: prev.experience.map((exp) => ({
           ...exp,
-          bullets: exp.bullets.map((b) => (b === original ? improved : b)),
+          bullets: exp.bullets.map((b) => (matches(b) ? improved : b)),
         })),
-        projects: prev.projects?.map((proj) => ({
+
+        // Projects
+        projects: (prev.projects ?? []).map((proj) => ({
           ...proj,
-          bullets: proj.bullets.map((b) => (b === original ? improved : b)),
+          bullets: proj.bullets.map((b) => (matches(b) ? improved : b)),
         })),
+
+        education: prev.education,
+        skills: prev.skills,
+        name: prev.name,
+        email: prev.email,
+        phone: prev.phone,
+        linkedin: prev.linkedin,
+        location: prev.location,
       };
+
+      // Schedule DB save inside functional update so we have correct state
+      setTimeout(async () => {
+        try {
+          setSaveStatus("saving");
+          await updateResumeText(
+            analysis.resumeId,
+            analysis.id,
+            nextResumeText,
+            currentScore,
+            next,
+          );
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch {
+          setSaveStatus("idle");
+        }
+      }, 1500);
+
+      return next;
     });
 
     setAppliedBullet((prev) => new Set([...prev, index]));
-    // Animate score up
-    const boost = Math.floor(Math.random() * 3) + 2; // +2 to +4 points
-    setCurrentScore((s: number) => Math.min(100, s + boost));
+    setCurrentScore((s: number) =>
+      Math.min(100, s + Math.floor(Math.random() * 3) + 2),
+    );
     setAppliedCount((c) => c + 1);
     setHighlightedBullet(improved);
     setTimeout(() => setHighlightedBullet(null), 2000);
-
-    // Debounced save to DB
-    setSaveStatus("saving");
-    //clearTimeout(saveTimer.current);
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-    }
-    const updated = resumeText.replace(original, improved);
-    saveTimer.current = setTimeout(async () => {
-      try {
-        await updateResumeText(analysis.resumeId, updated);
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus("idle"), 2000);
-      } catch {
-        setSaveStatus("idle");
-      }
-    }, 1500);
   };
 
   return (
@@ -425,11 +454,17 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
               </div>
             )}
           </div>
-
           {/* Get AI Suggestions button */}
           {!suggestions && (
             <button
-              onClick={() => submit({ resumeText: resumeText.slice(0, 3000) })}
+              onClick={() =>
+                submit({
+                  resumeText: resumeText.slice(0, 3000),
+                  analysisId: analysis.id,
+                  targetText: analysis.targetText,
+                  resultJson: analysis.resultJson,
+                })
+              }
               disabled={suggestionsLoading}
               style={{
                 width: "100%",
@@ -457,7 +492,6 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
               )}
             </button>
           )}
-
           {!suggestions && !suggestionsLoading && (
             <div
               style={{
@@ -476,7 +510,6 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
               </p>
             </div>
           )}
-
           {/* Bullet improvements */}
           {suggestions?.bulletImprovements &&
             suggestions.bulletImprovements.length > 0 && (
@@ -487,6 +520,150 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
               />
             )}
 
+          {suggestions?.summaryRewrite?.improved && (
+            <div
+              style={{
+                background: "var(--bg-card)",
+                borderRadius: 16,
+                border: "1px solid rgba(99,102,241,0.2)",
+                padding: 24,
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily: "Space Grotesk,sans-serif",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  marginBottom: 16,
+                }}
+              >
+                ✍ Tailored Summary
+              </h3>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                      background: "rgba(239,68,68,0.1)",
+                      color: "#EF4444",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Current
+                  </span>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "var(--slate)",
+                      margin: "6px 0 0",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {suggestions.summaryRewrite.original}
+                  </p>
+                </div>
+                <div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                      background: "rgba(34,197,94,0.1)",
+                      color: "#22C55E",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Tailored for this role
+                  </span>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "var(--white)",
+                      margin: "6px 0 0",
+                      lineHeight: 1.6,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {suggestions.summaryRewrite.improved}
+                  </p>
+                </div>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "var(--slate)",
+                    margin: 0,
+                    paddingTop: 8,
+                    borderTop: "1px solid rgba(255,255,255,0.05)",
+                  }}
+                >
+                  💡 {suggestions.summaryRewrite.reason}
+                </p>
+                <button
+                  // Replace the summary apply button onClick with this:
+                  onClick={() => {
+                    if (!suggestions?.summaryRewrite || !liveStructured) return;
+
+                    const { original, improved } = suggestions.summaryRewrite;
+
+                    // Replace in rawText
+                    const nextResumeText =
+                      resumeText.replace(
+                        liveStructured.summary ?? "",
+                        improved ?? "",
+                      ) || resumeText + "\n" + improved;
+
+                    setResumeText(nextResumeText);
+
+                    // Update structured directly — summary is just a string
+                    setLiveStructured((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev, summary: improved ?? "" };
+
+                      setTimeout(async () => {
+                        try {
+                          setSaveStatus("saving");
+                          await updateResumeText(
+                            analysis.resumeId,
+                            analysis.id,
+                            nextResumeText,
+                            currentScore,
+                            next,
+                          );
+                          setSaveStatus("saved");
+                          setTimeout(() => setSaveStatus("idle"), 2000);
+                        } catch {
+                          setSaveStatus("idle");
+                        }
+                      }, 1500);
+
+                      return next;
+                    });
+
+                    setAppliedBullet((prev) => new Set([...prev, -1]));
+                    setAppliedCount((c) => c + 1);
+                    setCurrentScore((s: number) => Math.min(100, s + 3));
+                  }}
+                  style={{
+                    padding: "8px 0",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "rgba(34,197,94,0.15)",
+                    color: "#22C55E",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  ✓ Apply tailored summary
+                </button>
+              </div>
+            </div>
+          )}
           {/* Missing keywords */}
           {result?.missingKeywords && result.missingKeywords.length > 0 && (
             <MissingKeywords
@@ -494,7 +671,6 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
               onAdd={(kw) => setResumeText((prev) => prev + `\n${kw}`)}
             />
           )}
-
           {/* Section scores */}
           {suggestions?.sectionScores && (
             <SectionScores
@@ -811,6 +987,36 @@ export default function AnalysisClient({ analysis, rawText, filename }: Props) {
                           >
                             After
                           </span>
+
+                          {b.addedKeywords && b.addedKeywords.length > 0 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 4,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span
+                                style={{ fontSize: 10, color: "var(--slate)" }}
+                              >
+                                Added:
+                              </span>
+                              {b.addedKeywords.map((kw, ki) => (
+                                <span
+                                  key={ki}
+                                  style={{
+                                    fontSize: 10,
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                    background: "rgba(99,102,241,0.12)",
+                                    color: "#818CF8",
+                                  }}
+                                >
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           <p
                             style={{
                               fontSize: 12,
