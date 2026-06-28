@@ -63,60 +63,6 @@ const steps = [
 export default function Home() {
   return (
     <main style={{ background: "var(--bg-deep)", color: "var(--white)" }}>
-      {/* Nav */}
-      {/* <nav
-        className="fixed top-0 left-0 right-0 z-50 border-b border-white/5"
-        style={{
-          background: "rgba(10,15,30,0.85)",
-          backdropFilter: "blur(16px)",
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-              style={{
-                background: "linear-gradient(135deg, #6366F1, #818CF8)",
-              }}
-            >
-              ✈
-            </div>
-            <span
-              className="font-bold text-lg"
-              style={{ fontFamily: "Space Grotesk, sans-serif" }}
-            >
-              JobPilot <span style={{ color: "#818CF8" }}>AI</span>
-            </span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a
-              href="#how"
-              className="text-sm transition-colors hover:text-white"
-              style={{ color: "var(--slate)" }}
-            >
-              How it works
-            </a>
-            <a
-              href="#features"
-              className="text-sm transition-colors hover:text-white"
-              style={{ color: "var(--slate)" }}
-            >
-              Features
-            </a>
-            <SignInButton />
-            <a
-              href="#analyze"
-              className="text-sm px-4 py-2 rounded-lg border transition-all hover:border-indigo-400"
-              style={{ borderColor: "rgba(99,102,241,0.4)", color: "#818CF8" }}
-            >
-              Try it free
-            </a>
-          </div>
-        </div>
-      </nav> */}
-      {/* <Navbar /> */}
-
-      {/* Hero */}
       <section className="relative pt-32 pb-24 px-6 bg-grid overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none"
@@ -137,7 +83,7 @@ export default function Home() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              AI-powered resume intelligence
+              Analyze your resume like a senior technical recruiter.
             </div>
 
             <h1
@@ -158,9 +104,9 @@ export default function Home() {
               className="text-lg leading-relaxed mb-10"
               style={{ color: "var(--slate)", maxWidth: 480 }}
             >
-              Upload your resume and the job description. JobPilot AI diagnoses
-              every gap, weak point, and missed keyword — so you fix the right
-              things before you apply.
+              Upload your resume and any job description. Get an ATS score,
+              missing keywords, recruiter feedback, and AI-powered improvements
+              in under 30 seconds.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -173,7 +119,7 @@ export default function Home() {
                   fontFamily: "Space Grotesk, sans-serif",
                 }}
               >
-                Analyze my resume →
+                Get My ATS Score →
               </Link>
               <a
                 href="#how"
